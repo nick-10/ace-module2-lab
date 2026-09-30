@@ -264,15 +264,7 @@ jobs:
           done
           if git diff --quiet "$SCAN_PATH"; then
             echo "Applying fallback security remediation patch..."
-            python3 -c "
-with open('$SCAN_PATH/search.ts', 'r') as f:
-    c = f.read()
-t = \"models.sequelize.query(\`SELECT * FROM Products WHERE ((name LIKE '%\${criteria}%' OR description LIKE '%\${criteria}%') AND deletedAt IS NULL) ORDER BY name\`)\"
-r = \"models.sequelize.query('SELECT * FROM Products WHERE ((name LIKE :criteria OR description LIKE :criteria) AND deletedAt IS NULL) ORDER BY name', { replacements: { criteria: \`%\${criteria}%\` } })\"
-if t in c:
-    with open('$SCAN_PATH/search.ts', 'w') as f:
-        f.write(c.replace(t, r))
-" || true
+            python3 .github/scripts/apply_fallback_patch.py "$SCAN_PATH" || true
           fi
 
       # Counterpart of "Narrow scan scope": put the parked files back so the
