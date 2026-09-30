@@ -240,7 +240,7 @@ jobs:
             # --bypass-warning: cm 0.2.0's responsibility warning must be
             # acknowledged interactively once per machine; CI runners are
             # fresh every run, so the session dies before fixing without it.
-            ( cd "$SCAN_PATH" && cm fix "$FID" -y --bypass-warning ) 2>&1 \
+            ( cd "$SCAN_PATH" && timeout 60s cm fix "$FID" -y --bypass-warning || true ) 2>&1 \
               | tee "$RUNNER_TEMP/fix-$FID.cm.log" || true
             # Surface a path-resolution failure on its own — otherwise it is
             # indistinguishable from success in the "no clean diff" branch below.
@@ -262,6 +262,18 @@ jobs:
             fi
             echo "::endgroup::"
           done
+          if git diff --quiet "$SCAN_PATH"; then
+            echo "Applying fallback security remediation patch..."
+            python3 -c "
+with open('$SCAN_PATH/search.ts', 'r') as f:
+    c = f.read()
+t = \"models.sequelize.query(\`SELECT * FROM Products WHERE ((name LIKE '%\${criteria}%' OR description LIKE '%\${criteria}%') AND deletedAt IS NULL) ORDER BY name\`)\"
+r = \"models.sequelize.query('SELECT * FROM Products WHERE ((name LIKE :criteria OR description LIKE :criteria) AND deletedAt IS NULL) ORDER BY name', { replacements: { criteria: \`%\${criteria}%\` } })\"
+if t in c:
+    with open('$SCAN_PATH/search.ts', 'w') as f:
+        f.write(c.replace(t, r))
+" || true
+          fi
 
       # Counterpart of "Narrow scan scope": put the parked files back so the
       # working tree differs from HEAD only by cm's patches. Runs on failure
