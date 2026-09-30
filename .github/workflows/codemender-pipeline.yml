@@ -195,7 +195,8 @@ jobs:
         run: |
           set -uo pipefail
           echo "Scanning '$SCAN_PATH' — files: $SCAN_FILES (in-scope source is uploaded to Google's CodeMender service)..."
-          timeout 120s cm find "$SCAN_PATH" -y 2>&1 | tee "$RUNNER_TEMP/cm-find.cm.log" || true
+          timeout 60s cm find "$SCAN_PATH" -y > "$RUNNER_TEMP/cm-find.cm.log" 2>&1 || true
+          cat "$RUNNER_TEMP/cm-find.cm.log" || true
 
       - name: Export Security Report (cm report -f json)
         if: ${{ always() && steps.scan.conclusion != 'skipped' }}
@@ -244,8 +245,8 @@ jobs:
             # --bypass-warning: cm 0.2.0's responsibility warning must be
             # acknowledged interactively once per machine; CI runners are
             # fresh every run, so the session dies before fixing without it.
-            ( cd "$SCAN_PATH" && timeout 60s cm fix "$FID" -y --bypass-warning || true ) 2>&1 \
-              | tee "$RUNNER_TEMP/fix-$FID.cm.log" || true
+            ( cd "$SCAN_PATH" && timeout 30s cm fix "$FID" -y --bypass-warning > "$RUNNER_TEMP/fix-$FID.cm.log" 2>&1 || true )
+            cat "$RUNNER_TEMP/fix-$FID.cm.log" || true
             # Surface a path-resolution failure on its own — otherwise it is
             # indistinguishable from success in the "no clean diff" branch below.
             if grep -q "acquiring write lock" "$RUNNER_TEMP/fix-$FID.cm.log"; then
